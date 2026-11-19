@@ -1,0 +1,10 @@
+# Large firmware backups and local flashing binaries
+NpadPro-rescue-*/
+tools/
+*.img
+*.bin
+*.pac
+*.zip
+*.exe
+*.dll
+*.pdb
