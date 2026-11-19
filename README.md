@@ -118,3 +118,32 @@ done
 - **最安全的新系统体验方式**：优先使用本机内置的 **DSU（`gsi_tool`）** 临时加载 ARM64 Android 12/13 GSI，不覆盖原系统，失败可直接切回。
 - **切勿随意切换 B 槽**：本机 `super` 中 B 槽动态分区为空，切槽会导致无法启动（若误切槽，可通过刷回原厂 `misc` 分区切回 A 槽）。
 - **高危分区切勿乱动**：`uboot_*`、`sml_*`、`trustos_*`、`teecfg_*`、`hypervsior_*`、`vbmeta_*`、`l_modem_*`、`l_fixnv*`、`prodnv`、`miscdata`（含 IMEI / Wi-Fi MAC 等校准信息）。
+
+## 6. 推荐“玩花”路线
+
+| 路线 | 好玩程度 | 成熟度 | 建议 |
+|---|---:|---:|---|
+| Android 12/13 ARM64 GSI（DSU） | ★★★★ | 较高 | 最先尝试，避免永久覆盖原系统；AOSP 可做干净系统，LineageOS GSI 可体验更自由的 Android |
+| N-one Npad Pro 专用 TWRP | ★★★★ | 测试版 | 作为恢复/安装底座；作者称 Release 版本可工作，但项目自 2023 年后停止维护，刷前必须保留原厂 `vendor_boot` |
+| Android 14+ GSI | ★★★★★ | 中低 | 外观和功能更新，但原厂 vendor 为 Android 12，Wi-Fi、摄像头、音视频可能不兼容 |
+| postmarketOS / Alpine 用户态 + 原厂内核 | ★★★★★ | 移植中 | 有 T616 主线基础，但本机 DTS、DRM、触控、UFS、电源管理尚缺完整集成；需要继续解决 initramfs 与 vendor DTB 兼容 |
+| Android TV / 复古游戏 / Termux Linux | ★★★★ | 高 | 不必刷底层系统即可长期玩：Kodi/Jellyfin、RetroArch、Debian/proot、Kali，风险最低 |
+| Ubuntu Touch / Sailfish / Windows ARM | ★★★ | 很低 | 当前没有本机专用移植，不建议直接刷 |
+
+### 已验证的专用 TWRP 资源
+
+仓库：[ManInTheMirrow/twrp_device_incar_Npad-Pro](https://github.com/ManInTheMirrow/twrp_device_incar_Npad-Pro)
+
+- Release：`vendor_boot_nocrypt.img`
+- 大小：`104857600` 字节（100 MiB），与本机 `vendor_boot_a/b` 分区大小完全匹配
+- SHA-256：`01DC53956836E0FC91CFB6206F0CBF4D6FC4D197D8E2F5FCC3E7F6699FF57ED2`
+- 设备树采用 Android 12 Header v4，并将 recovery ramdisk 放进 `vendor_boot`
+- 注意：仓库已停止维护，作者 README 提到部分版本黑屏；即使 image 能启动，也不能假定触控、解密或 MTP 全部可用
+
+### 建议实施顺序
+
+1. 确认 Android 已从救砖后的 FastbootD 正常重启，重新上线 ADB。
+2. 先用 DSU 试 Android 12/13 ARM64 GSI；验证 Wi-Fi、触控、旋转、音频、视频硬解与充电。
+3. 如需更方便地切换系统，再将本机专用 TWRP 写入 **A 槽的 `vendor_boot_a`**；不动 B 槽，并保留原厂 `vendor_boot_a.img`。
+4. TWRP 稳定后才测试 LineageOS GSI 或 Android 14+ GSI。
+5. 真正的 postmarketOS 作为长期移植项目单独推进：优先完成原厂 5.4.161 内核 + Alpine rootfs 的最小启动，再解决 DRM、触控、GPU 与电源管理，不把主线内核文件夹直接照搬到本机。
