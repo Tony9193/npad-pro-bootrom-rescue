@@ -4,6 +4,8 @@
 > 适用机型：BMAX MaxPad I11 Plus / N-one Npad Pro（`ro.product.model=Npad-Pro`，`ro.product.device=I11_Plus`，**Unisoc T616 + UFS + Android 12 版**）
 
 > ⚠️ **注意区分版本**：后续有换用 **T606 + Android 13** 的新版机型，硬件与固件不同，**切勿混刷**。
+>
+> 📖 **深度排障与移植手册**：完整底层原理、踩坑实录、DSU/EXT4 改包细节与 `pstore` 破案方法已整理至 **[EXPERIENCE.md](./EXPERIENCE.md)**。
 
 ---
 
@@ -147,3 +149,29 @@ done
 3. 如需更方便地切换系统，再将本机专用 TWRP 写入 **A 槽的 `vendor_boot_a`**；不动 B 槽，并保留原厂 `vendor_boot_a.img`。
 4. TWRP 稳定后才测试 LineageOS GSI 或 Android 14+ GSI。
 5. 真正的 postmarketOS 作为长期移植项目单独推进：优先完成原厂 5.4.161 内核 + Alpine rootfs 的最小启动，再解决 DRM、触控、GPU 与电源管理，不把主线内核文件夹直接照搬到本机。
+
+---
+
+## 7. 实测成功：Android 15 Miku UI（DSU 免刷机双系统，35 秒进桌面）
+
+已在本机通过 `gsi_tool`（DSU）成功点亮 **Miku UI `Vampire_v2-0.6.1`（Android 15，`arm64-ab`）**，进入 `MikuHome` 桌面且 Wi-Fi、触控、2000×1200 显示与 Root ADB 全部正常。
+
+### 关键排障根因（适用于本机所有 Android 14/15/16+ TrebleDroid GSI）
+1. **卡开机动画根因（`/sys/fs/pstore/pmsg-ramoops-0` 实测定位）**：
+   - `init.rc` 在 `late-fs` 阶段同步执行 `exec_start update_verifier`，阻塞 PID 1（`init`）等待 `android.hardware.boot@1.0::IBootControl/default`；
+   - 本机展锐 `vendor.sprd.hardware.boot@1.2-service` 依赖 `/vendor/lib64/android.hardware.boot@1.0~1.2.so`，在非 `vndklite` 严格命名空间下无法注册，导致 `init` 永久卡在 `late-fs`（连 `post-fs-data` 与 `on boot` USB 初始化都走不到）。
+2. **修复补丁要点（保持原文件 inode 与 `security.selinux` 标签）**：
+   - 对 `system.img` 执行 `e2fsck -E unshare_blocks` 解开共享块并挂载读写；
+   - 注释 `/system/etc/init/hw/init.rc` 中的 `exec_start update_verifier`，并将 `/system/etc/init/update_verifier.rc` 设为 `disabled`；
+   - 在 `/system/build.prop` 与 `/system/system_ext/etc/build.prop` 写入 `ro.vndk.lite=true`；
+   - 在 `/system/etc/init/vndk.rc` 的 `early-init` 中加入 `exec u:r:phhsu_daemon:s0 root -- /system/bin/setenforce 0`；
+   - 用 `avbtool.py add_hashtree_footer`（`SHA256_RSA2048` + `testkey_rsa2048.pem`）重新生成 `AVBf` 签名尾；
+   - 在原厂系统 `adb root` + `setenforce 0` 下通过管道安装：
+     ```sh
+     cat /data/local/tmp/miku_fixed.img | gsi_tool install --userdata-size 8589934592 --gsi-size <镜像字节数>
+     ```
+3. **双系统切换命令**：
+   - 保持每次开机默认进 DSU 系统：`adb shell gsi_tool enable`
+   - 下次重启退回原厂 Android 12：`adb shell gsi_tool disable && adb reboot`
+   - 彻底删除 DSU 系统并回收 `/data` 空间（回到原厂后）：`adb shell gsi_tool wipe`
+
