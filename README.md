@@ -175,3 +175,17 @@ done
    - 下次重启退回原厂 Android 12：`adb shell gsi_tool disable && adb reboot`
    - 彻底删除 DSU 系统并回收 `/data` 空间（回到原厂后）：`adb shell gsi_tool wipe`
 
+---
+
+## 8. 实测成功：Ubuntu 22.04 + ROS 2 Humble + `micro_ros_agent` + Mali-G57 GPU 加速上位机
+
+已在深度精简后的原厂 Android 12 底包（开机空闲内存 **`5.85 GB`**，`/data` 剩余 **`85 GB`**）下部署 **32GB 稀疏 EXT4 独立镜像（`/data/ubuntu-ros.img`）**，通过内核级 Root Chroot + **ARM Mali-G57 VirGL 硬件 GPU 加速（OpenGL 4.3，`rviz2` CPU 占用从软渲染 `234%` 降至 `22.5%`）** + `Termux:X11`（`1280×800` 16:10 全屏零拷贝显示）完整跑通：
+- **已预装组件**：Ubuntu 22.04.5 ARM64 + XFCE4 中文桌面（已关闭软件合成器防卡顿）+ `onboard` 触屏软键盘 + **`ros-humble-desktop`（含 `rviz2`、`rqt`、`turtlesim`）** + **`slam-toolbox`** + **`navigation2` / `nav2-bringup`** + **`colcon` 编译工具链** + 源码编译好的 **`micro_ros_agent`（Humble 分支，支持 `udp4 --port 8888` 直连 ESP32 小车）**。
+- **安卓主页“一点即开”（完全脱离电脑冷启动可用）**：自研安装了独立启动器 `ROS2Launcher.apk`，在安卓主页第一屏提供：
+  - **「启动 ROS2」图标**：点一下全自动挂载镜像、拉起 Mali-G57 GPU 服务并切入全屏 Ubuntu + ROS 2 桌面；
+  - **「停止 ROS2」图标**：点一下安全终止所有容器进程并卸载镜像。
+- **电脑端 ADB 快捷命令**：
+  - 启动桌面：`adb shell sh /data/ros-bin/start-ros.sh`
+  - 进入终端：`adb shell sh /data/ros-bin/enter-ros.sh`
+  - 完全无痕卸载恢复（若日后不再需要）：`adb shell "sh /data/ros-bin/stop-ros.sh && rm -rf /data/ubuntu-ros /data/ubuntu-ros.img /data/ros-bin /data/local/tmp/*-ros.sh"`，再卸载 `com.npad.roslauncher`、`com.termux` 与 `com.termux.x11` 即可 100% 还原。
+
